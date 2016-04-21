@@ -40,5 +40,19 @@
 
  int main() {
 
+ 	FILE *fp = fopen("deps/addresses.txt", "r");  // open the file
+ 	char *token;
+ 	int i;
+
+ 	/* this just makes sure we can read from the file */
+ 	if(fp) {
+ 		char line[10];
+ 		while(fgets(line, sizeof(line), fp)) {
+ 			strtok_r(line, "\n", &token);
+ 			printf("%s\n", line);
+ 		}
+
+ 		fclose(fp);
+ 	}
  	return 0;
  }
