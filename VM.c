@@ -39,5 +39,6 @@
 #endif // OFFSET_MARK
 
  int main() {
+
  	return 0;
  }
