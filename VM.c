@@ -38,21 +38,42 @@
 #define OFFSET_MARK 255
 #endif // OFFSET_MARK
 
- int main() {
+// physical add=(frame no * page size) + offset value
 
- 	FILE *fp = fopen("deps/addresses.txt", "r");  // open the file
- 	char *token;
- 	int i;
+#define MASK_BITS(address) ((address) & (unsigned int)0x0FFF)
 
- 	/* this just makes sure we can read from the file */
- 	if(fp) {
- 		char line[10];
- 		while(fgets(line, sizeof(line), fp)) {
- 			strtok_r(line, "\n", &token);
- 			printf("%s\n", line);
- 		}
+void Find_Address(unsigned long long int address);
 
- 		fclose(fp);
- 	}
- 	return 0;
- }
+int main() {
+
+	FILE *fp = fopen("deps/addresses.txt", "r");  // open the file
+	char buffer[50];
+	unsigned long long int address;
+	int i;
+
+	i = 1;
+	while(!feof(fp)) {
+		fscanf(fp, "%s", buffer);
+		address = atol(buffer);
+		Find_Address(address);
+		i++;
+	}
+
+	fclose(fp);
+	return 0;
+}
+
+void Find_Address(unsigned long long int address) {
+	// address = MASK_BITS(address);
+
+	printf("Virtual address : %llu ", address);
+
+	/* offset 8 bits to find page number */
+	unsigned long long int page_number = address >> OFFSET_BITS;
+	printf("Page Number : %llu ", page_number);
+
+	/* mod address by PAGE_SIZE to find the offset */
+	unsigned long long int offset_number = address % PAGE_SIZE;
+	printf("Offset = %llu\n\n", offset_number);
+
+}
