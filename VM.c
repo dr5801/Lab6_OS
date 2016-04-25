@@ -38,10 +38,6 @@
 #define OFFSET_MARK 255
 #endif // OFFSET_MARK
 
-// physical add=(frame no * page size) + offset value
-
-#define MASK_BITS(address) ((address) & (unsigned int)0x0FFF)
-
 void Find_Address(unsigned long long int address);
 
 int main() {
