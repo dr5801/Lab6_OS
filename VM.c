@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #ifndef TLB_SIZE
 #define TLB_SIZE 16
@@ -38,38 +39,111 @@
 #define OFFSET_MARK 255
 #endif // OFFSET_MARK
 
-void Find_Address(unsigned long long int address);
+#ifndef NUMBER_OF_ADDRESSES
+#define NUMBER_OF_ADDRESSES 1000
+#endif // NUMBER_OF_ADDRESSES
 
-int main() {
+typedef struct ADDRESS_INFO{
+	unsigned long long int virt_address;
+	unsigned long long int page_number;
+	unsigned long long int offset;
+	unsigned long long int frame_number;
+	unsigned long long int physical_addr;
+}ADDRESS_INFO;
 
-	FILE *fp = fopen("deps/addresses.txt", "r");  // open the file
-	char buffer[50];
-	unsigned long long int address;
+void find_address(unsigned long long int address, int current_line_num, int num_entries);
+unsigned long long int calculate_physical_address(int frame_num, int offset);
+void free_list();
+
+ADDRESS_INFO * list_of_addresses;
+int num_entries;
+
+// unsigned long long int page_number;
+// unsigned long long int offset;
+// long long int frame_number;
+// long long int physical_addr;
+
+// unsigned long long int addresses
+
+int main(int argc, char * argv[]) {
+
+	char address[50];
+	int buffer = 50;
 	int i;
 
-	i = 1;
-	while(!feof(fp)) {
-		fscanf(fp, "%s", buffer);
-		address = atol(buffer);
-		Find_Address(address);
-		i++;
-	}
+	if(argc == 3) {
+		char text_string[50];
+		char bin_string[50];
+		FILE *fp = fopen("deps/addresses.txt", "r");  // open the file
 
-	fclose(fp);
-	return 0;
+		list_of_addresses = malloc(sizeof(ADDRESS_INFO) * NUMBER_OF_ADDRESSES+2);
+
+		for(i = 0; i < NUMBER_OF_ADDRESSES; i++) {
+			list_of_addresses[i].virt_address = 0;
+			list_of_addresses[i].page_number = 0;
+			list_of_addresses[i].offset = 0;
+			list_of_addresses[i].frame_number = 0;
+			list_of_addresses[i].physical_addr = 0;
+		}
+		
+		i = 0;
+		num_entries = 0;
+		while(fgets(address, buffer, fp)) {
+
+			if(num_entries-1 == 15) {
+				num_entries = 0;
+			}
+			find_address(atol(address), i, num_entries);
+			printf("Virtual address: %llu ", list_of_addresses[i].virt_address);
+			printf("Physical address: %llu ", list_of_addresses[i].physical_addr);
+			printf("Frame Number: %llu ", list_of_addresses[i].frame_number);
+			printf("Offset : %llu\n", list_of_addresses[i].offset);
+			i++;
+			num_entries++;
+		}
+
+		// for(i = 0; i < NUMBER_OF_ADDRESSES; i++) {
+		// }
+
+		fclose(fp);
+		free_list();
+		return 0;
+	}
+	else {
+		printf("Error: You did not input the correct sequence!\n");
+		return 1;
+	}
 }
 
-void Find_Address(unsigned long long int address) {
-	// address = MASK_BITS(address);
-
-	printf("Virtual address : %llu ", address);
+/**
+ * calculates the page number, offset and the physical address
+ * @param address [description]
+ */
+void find_address(unsigned long long int address, int current_line_num, int num_entries) {
 
 	/* offset 8 bits to find page number */
-	unsigned long long int page_number = address >> OFFSET_BITS;
-	printf("Page Number : %llu ", page_number);
+	list_of_addresses[current_line_num].virt_address = address;
+	list_of_addresses[current_line_num].page_number	= address >> OFFSET_BITS;
+	list_of_addresses[current_line_num].offset = address % PAGE_SIZE;
+	list_of_addresses[current_line_num].frame_number = num_entries;
+	list_of_addresses[current_line_num].physical_addr = calculate_physical_address(num_entries, list_of_addresses[current_line_num].offset);
+	// page_number = address >> OFFSET_BITS;
+	// printf("Page Number : %llu ", list_of_addresses[current_line_num].page_number);
 
 	/* mod address by PAGE_SIZE to find the offset */
-	unsigned long long int offset_number = address % PAGE_SIZE;
-	printf("Offset = %llu\n\n", offset_number);
+	// offset = address % PAGE_SIZE;
+	// printf("Offset = %llu\n\n", list_of_addresses[current_line_num].offset);
 
+}
+
+unsigned long long int calculate_physical_address(int frame_num, int offset) {
+	unsigned long long int calc = frame_num * PAGE_SIZE + offset;	
+	return (frame_num * PAGE_SIZE + offset);
+}
+
+/**
+ * free list of addresses so no memory leaks occur
+ */
+void free_list() {
+	free(list_of_addresses);
 }
