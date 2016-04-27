@@ -55,15 +55,9 @@ void find_address(unsigned long long int address, int current_line_num, int num_
 unsigned long long int calculate_physical_address(int frame_num, int offset);
 void free_list();
 
+
 ADDRESS_INFO * list_of_addresses;
 int num_entries;
-
-// unsigned long long int page_number;
-// unsigned long long int offset;
-// long long int frame_number;
-// long long int physical_addr;
-
-// unsigned long long int addresses
 
 int main(int argc, char * argv[]) {
 
@@ -74,7 +68,8 @@ int main(int argc, char * argv[]) {
 	if(argc == 3) {
 		char text_string[50];
 		char bin_string[50];
-		FILE *fp = fopen("deps/addresses.txt", "r");  // open the file
+		FILE *bin_file = fopen(argv[1], "rb");	   // open the bin file
+		FILE *address_file = fopen(argv[2], "r");  // open the addresses file
 
 		list_of_addresses = malloc(sizeof(ADDRESS_INFO) * NUMBER_OF_ADDRESSES+2);
 
@@ -88,7 +83,7 @@ int main(int argc, char * argv[]) {
 		
 		i = 0;
 		num_entries = 0;
-		while(fgets(address, buffer, fp)) {
+		while(fgets(address, buffer, address_file)) {
 
 			if(num_entries-1 == 15) {
 				num_entries = 0;
@@ -102,10 +97,8 @@ int main(int argc, char * argv[]) {
 			num_entries++;
 		}
 
-		// for(i = 0; i < NUMBER_OF_ADDRESSES; i++) {
-		// }
-
-		fclose(fp);
+		fclose(address_file);
+		fclose(bin_file);
 		free_list();
 		return 0;
 	}
