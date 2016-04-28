@@ -39,10 +39,6 @@
 #define OFFSET_MARK 255
 #endif // OFFSET_MARK
 
-#ifndef PAGE_NUMBER_MASK
-#define PAGE_NUMBER_MASK 65280;
-#endif // PAGE_NUMBER_MASK
-
 #ifndef NUMBER_OF_ADDRESSES
 #define NUMBER_OF_ADDRESSES 1000
 #endif // NUMBER_OF_ADDRESSES
@@ -55,39 +51,19 @@ typedef struct ADDRESS_INFO{
 	unsigned long long int physical_addr;
 }ADDRESS_INFO;
 
-typedef struct TLB {
-	unsigned long long int page_num;
-	unsigned long long int frame_num;
-}TLB;
-
 void find_address(unsigned long long int address, int current_line_num, int num_entries);
 unsigned long long int calculate_physical_address(int frame_num, int offset);
 void free_list();
 
 
 ADDRESS_INFO * list_of_addresses;
-TLB tlb[PAGE_SIZE];
-
 int num_entries;
-int address_count = 0;
-int page_fault_count = 0;
-int tlb_hit = 0;
-double tlb_rate = 0;
-int hit = 0;
-int tlb_index = 0;
-
-int page_table[PAGE_SIZE];
-
-
 
 int main(int argc, char * argv[]) {
 
 	char address[50];
 	int buffer = 50;
 	int i;
-
-	memset(page_table, -1, 256*sizeof(int));
-	memset(page_table, -1, 16*sizeof(char));
 
 	if(argc == 3) {
 		char text_string[50];
@@ -113,6 +89,10 @@ int main(int argc, char * argv[]) {
 				num_entries = 0;
 			}
 			find_address(atol(address), i, num_entries);
+			printf("Virtual address: %llu ", list_of_addresses[i].virt_address);
+			printf("Physical address: %llu ", list_of_addresses[i].physical_addr);
+			printf("Frame Number: %llu ", list_of_addresses[i].frame_number);
+			printf("Offset : %llu\n", list_of_addresses[i].offset);
 			i++;
 			num_entries++;
 		}
@@ -130,16 +110,22 @@ int main(int argc, char * argv[]) {
 
 /**
  * calculates the page number, offset and the physical address
- * @param address
+ * @param address [description]
  */
 void find_address(unsigned long long int address, int current_line_num, int num_entries) {
 
+	/* offset 8 bits to find page number */
 	list_of_addresses[current_line_num].virt_address = address;
 	list_of_addresses[current_line_num].page_number	= address >> OFFSET_BITS;
 	list_of_addresses[current_line_num].offset = address % PAGE_SIZE;
 	list_of_addresses[current_line_num].frame_number = num_entries;
 	list_of_addresses[current_line_num].physical_addr = calculate_physical_address(num_entries, list_of_addresses[current_line_num].offset);
-	
+	// page_number = address >> OFFSET_BITS;
+	// printf("Page Number : %llu ", list_of_addresses[current_line_num].page_number);
+
+	/* mod address by PAGE_SIZE to find the offset */
+	// offset = address % PAGE_SIZE;
+	// printf("Offset = %llu\n\n", list_of_addresses[current_line_num].offset);
 
 }
 
