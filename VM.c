@@ -1,142 +1,116 @@
 /**
- * Lab 6 	  : Virtual Memory
- * Programmer : Drew Rife & Alec Waddelow
- * Course 	  : CMPE 320
- * Section 	  : 2(11-12:50pm)
+ * Lab 6      : Virtual Memory
+ * Programmer : Drew Rife
+ * Course     : CMPE 320
+ * Section    : 2(11-12:50pm)
  * Instructor : S. Lee
  */
 
-#include <stdio.h>
-#include <sys/mman.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
+#include "VM.h"
 
-#ifndef TLB_SIZE
-#define TLB_SIZE 16
-#endif // TLB_SIZE
+int main(int argc, char *argv[]) {
 
-#ifndef PAGES
-#define PAGES 256
-#endif // PAGES
+  if(argc == 3) {
+    /* open addresses text file and backing store bin file */
+    FILE *bin_file = fopen(argv[1], "rb");
+    FILE *address_file = fopen(argv[2], "r");
 
-#ifndef PAGE_MASK
-#define PAGE_MASK 255
-#endif // PAGE_MASK
+    char buffer[PAGE_SIZE];  // buffer to be used whenever needed - has PAGE_SIZE (256)
+    
+    int page_table[PAGE_SIZE];
+    memset(page_table, -1, PAGE_SIZE*sizeof(int));  // fill page table array with -1 (initialise)
 
-#ifndef PAGE_SIZE
-#define PAGE_SIZE 256
-#endif // PAGE_SIZE
+    TLB tlb_info[TLB_SIZE];
+    memset(page_table, -1, TLB_SIZE*sizeof(char));  // convert to single-byte char
+    
+    int i;
+    /* scan the file and read the address into virtual address -> Make sure there is an actual value there (TRUE) */
+    while(fscanf(address_file, "%d", &virtual_address) == true) {
+      address_count++;  // address was found if it entered the while loop
+     
+      /* get the page number and the offset from the virtual address just read in */
+      page_number = virtual_address ^ PAGE_MASK;  // XOR for bitwise & of inverse of PAGE_MASK
+      page_number = page_number >> OFFSET_BITS;
+      offset = virtual_address & PAGE_MASK;
+      hit = -1;
 
-#ifndef OFFSET_BITS
-#define OFFSET_BITS 8
-#endif // OFFSET_BITS
+      i = 0;
+      /* search in the tlb to see if page number is already stored */
+      while(i < current_tlb_size) {
+        if(tlb_info[i].page_number == page_number) {
+          hit = tlb_info[i].frame_number;
+          physical_address = (PAGE_SIZE*hit) + offset;
+        }
+        i++;
+      }
 
-#ifndef OFFSET_MARK
-#define OFFSET_MARK 255
-#endif // OFFSET_MARK
+      /* read from the BACKINGSTORE.bin file */
+      if(page_table[page_number] == -1) {
+        fseek(bin_file, page_number*PAGE_SIZE, SEEK_SET);
+        fread(buffer, sizeof(char), PAGE_SIZE, bin_file);
+        page_table[page_number] = frame;
+        
+        for(i = 0; i < PAGE_SIZE; i++) {
+          phys_mem[frame*PAGE_SIZE + i] = buffer[i];
+        }
 
-#ifndef NUMBER_OF_ADDRESSES
-#define NUMBER_OF_ADDRESSES 1000
-#endif // NUMBER_OF_ADDRESSES
+        page_fault++; // increase page fault
+        frame++;      // increase frame
 
-typedef struct ADDRESS_INFO{
-	unsigned long long int virt_address;
-	unsigned long long int page_number;
-	unsigned long long int offset;
-	unsigned long long int frame_number;
-	unsigned long long int physical_addr;
-}ADDRESS_INFO;
+        /* page fault occurred */
+        if(current_tlb_size == TLB_SIZE) {
+          current_tlb_size--;
+        }
 
-void find_address(unsigned long long int address, int current_line_num, int num_entries);
-unsigned long long int calculate_physical_address(int frame_num, int offset);
-void free_list();
+        /* go forward in the TLB -------> FIFO */
+        for(tlb_position = current_tlb_size; tlb_position > 0; tlb_position--) {
+          tlb_info[tlb_position].page_number = tlb_info[tlb_position-1].page_number;
+          tlb_info[tlb_position].frame_number = tlb_info[tlb_position-1].frame_number;
+        }
 
+        /* TLB can still be filled */
+        if(current_tlb_size < TLB_SIZE) {
+          current_tlb_size++;
+        }
 
-ADDRESS_INFO * list_of_addresses;
-int num_entries;
+        tlb_info[0].page_number = page_number;
+        tlb_info[0].frame_number = page_table[page_number];
 
-int main(int argc, char * argv[]) {
+        /* set the physical address to the (frame * PAGE_SIZE) + offset */
+        physical_address = page_table[page_number]*PAGE_SIZE + offset;
+      }
+      else if(hit != -1) {
+        tlb_hit++;
+      }
+      else {
+        /* set the physical address to the (frame * PAGE_SIZE) + offset */
+        physical_address = page_table[page_number]*PAGE_SIZE + offset;
+      }
 
-	char address[50];
-	int buffer = 50;
-	int i;
+      /* set value to the value stored in the physical address of the physical memory */
+      value = phys_mem[physical_address];
+      printf("Virtual address: %d Physical Address: %d Value: %d \n", virtual_address, physical_address, value);
+    }
+    tlb_hit--;
 
-	if(argc == 3) {
-		char text_string[50];
-		char bin_string[50];
-		FILE *bin_file = fopen(argv[1], "rb");	   // open the bin file
-		FILE *address_file = fopen(argv[2], "r");  // open the addresses file
+    /* calculate the page_fault_rate and tlb_hit_rate */
+    page_fault_rate = page_fault*1.0f / address_count;
+    tlb_hit_rate = tlb_hit*1.0f / address_count;
 
-		list_of_addresses = malloc(sizeof(ADDRESS_INFO) * NUMBER_OF_ADDRESSES+2);
+    /* print results */
+    printf("Number of Translated Addresses = %d\n", address_count);
+    printf("Page Faults = %d\n", page_fault);
+    printf("Page Fault Rate = %.03f\n", page_fault_rate);
+    printf("TLB Hits = %d\n", tlb_hit);
+    printf("TLB Hit Rate %.03f\n", tlb_hit_rate);
 
-		for(i = 0; i < NUMBER_OF_ADDRESSES; i++) {
-			list_of_addresses[i].virt_address = 0;
-			list_of_addresses[i].page_number = 0;
-			list_of_addresses[i].offset = 0;
-			list_of_addresses[i].frame_number = 0;
-			list_of_addresses[i].physical_addr = 0;
-		}
-		
-		i = 0;
-		num_entries = 0;
-		while(fgets(address, buffer, address_file)) {
-
-			if(num_entries-1 == 15) {
-				num_entries = 0;
-			}
-			find_address(atol(address), i, num_entries);
-			printf("Virtual address: %llu ", list_of_addresses[i].virt_address);
-			printf("Physical address: %llu ", list_of_addresses[i].physical_addr);
-			printf("Frame Number: %llu ", list_of_addresses[i].frame_number);
-			printf("Offset : %llu\n", list_of_addresses[i].offset);
-			i++;
-			num_entries++;
-		}
-
-		fclose(address_file);
-		fclose(bin_file);
-		free_list();
-		return 0;
-	}
-	else {
-		printf("Error: You did not input the correct sequence!\n");
-		return 1;
-	}
-}
-
-/**
- * calculates the page number, offset and the physical address
- * @param address [description]
- */
-void find_address(unsigned long long int address, int current_line_num, int num_entries) {
-
-	/* offset 8 bits to find page number */
-	list_of_addresses[current_line_num].virt_address = address;
-	list_of_addresses[current_line_num].page_number	= address >> OFFSET_BITS;
-	list_of_addresses[current_line_num].offset = address % PAGE_SIZE;
-	list_of_addresses[current_line_num].frame_number = num_entries;
-	list_of_addresses[current_line_num].physical_addr = calculate_physical_address(num_entries, list_of_addresses[current_line_num].offset);
-	// page_number = address >> OFFSET_BITS;
-	// printf("Page Number : %llu ", list_of_addresses[current_line_num].page_number);
-
-	/* mod address by PAGE_SIZE to find the offset */
-	// offset = address % PAGE_SIZE;
-	// printf("Offset = %llu\n\n", list_of_addresses[current_line_num].offset);
-
-}
-
-unsigned long long int calculate_physical_address(int frame_num, int offset) {
-	unsigned long long int calc = frame_num * PAGE_SIZE + offset;	
-	return (frame_num * PAGE_SIZE + offset);
-}
-
-/**
- * free list of addresses so no memory leaks occur
- */
-void free_list() {
-	free(list_of_addresses);
+    /* close the files */
+    fclose(address_file);
+    fclose(bin_file);
+    return 0;
+  }
+  else {
+    printf("Error: you didn't input the correct parameters!\n");
+    return 1;
+  }
 }
