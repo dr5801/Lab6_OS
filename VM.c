@@ -11,6 +11,7 @@
 int main(int argc, char *argv[]) {
 
   if(argc == 3) {
+
     /* open addresses text file and backing store bin file */
     FILE *bin_file = fopen(argv[1], "rb");
     FILE *address_file = fopen(argv[2], "r");
